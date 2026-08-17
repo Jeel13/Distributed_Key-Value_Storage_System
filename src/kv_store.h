@@ -6,18 +6,37 @@
 #include <optional>
 #include <shared_mutex>
 
+#include "wal.h"
+
 class KeyValueStore {
 private:
     std::unordered_map<std::string, std::string> data;
 
     std::shared_mutex mutex;
 
+    WAL wal;
+
+    void recover();
+
+
 public:
-    void put(const std::string& key, const std::string& value);
+    explicit KeyValueStore(
+        const std::string& walFilename
+    );
 
-    std::optional<std::string> get(const std::string& key);
+    void put(
+        const std::string& key, 
+        const std::string& value
+    );
 
-    bool remove(const std::string& key);
+    std::optional<std::string> get(
+        const std::string& key
+    );
+
+    bool remove(
+        const std::string& key
+    );
+
 };
 
 #endif

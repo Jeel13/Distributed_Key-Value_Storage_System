@@ -10,7 +10,7 @@
 
 int main(){
     //key value store
-    KeyValueStore store;
+    KeyValueStore store("data.wal");
 
     ThreadPool pool(4);
 

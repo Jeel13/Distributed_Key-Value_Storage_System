@@ -12,6 +12,7 @@ add_executable(kv_server
     src/handler.cpp
     src/thread_pool.cpp
     src/client_handler.cpp
+    src/wal.cpp
 )
 
 target_link_libraries(kv_server 
