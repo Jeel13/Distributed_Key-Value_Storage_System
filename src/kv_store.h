@@ -4,10 +4,13 @@
 #include <string>
 #include <unordered_map>
 #include <optional>
+#include <shared_mutex>
 
 class KeyValueStore {
 private:
     std::unordered_map<std::string, std::string> data;
+
+    std::shared_mutex mutex;
 
 public:
     void put(const std::string& key, const std::string& value);
