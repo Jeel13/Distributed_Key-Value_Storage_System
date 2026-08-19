@@ -16,6 +16,8 @@ private:
 
     WAL wal;
 
+    uint64_t lastSequence;
+
     void recover();
 
 
@@ -37,6 +39,9 @@ public:
         const std::string& key
     );
 
+    void createSnapshot(
+        const std::string& filename
+    );
 };
 
 #endif

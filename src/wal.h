@@ -5,6 +5,14 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <cstdint>
+
+struct WALEntry {
+    uint64_t sequence;
+    std::string operation;
+    std::string key;
+    std::string value;
+};
 
 class WAL {
 private:
@@ -12,19 +20,23 @@ private:
     std::mutex mutex;
     std::string filename;
 
+    uint64_t nextSequence;
+
 public:
     explicit WAL(const std::string& filename);
 
-    void appendPut(
+    uint64_t appendPut(
         const std::string& key,
         const std::string& value
     );
 
-    void appendDelete(
+    uint64_t appendDelete(
         const std::string& key
     );
 
-    std::vector<std::string> readAll();
+    std::vector<WALEntry> readAll();
+
+    uint64_t getLastSequence() const;
 };
 
 #endif

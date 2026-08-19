@@ -13,8 +13,31 @@ add_executable(kv_server
     src/thread_pool.cpp
     src/client_handler.cpp
     src/wal.cpp
+    src/snapshot.cpp
+)
+
+add_executable(snapshot_test
+    tests/snapshot_test.cpp
+    src/snapshot.cpp
+    src/kv_store.cpp
+    src/wal.cpp
+)
+
+add_executable(concurrent_test
+    tests/concurrent_test.cpp
+    src/kv_store.cpp
+    src/wal.cpp
+    src/snapshot.cpp
 )
 
 target_link_libraries(kv_server 
     PRIVATE pthread
+)
+
+target_include_directories(snapshot_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(concurrent_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
 )
