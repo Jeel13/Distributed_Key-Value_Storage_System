@@ -5,6 +5,9 @@
 #include <unordered_map>
 #include <optional>
 #include <shared_mutex>
+#include <atomic>
+#include <condition_variable>
+#include <thread>
 
 #include "wal.h"
 
@@ -18,12 +21,28 @@ private:
 
     uint64_t lastSequence;
 
+    static constexpr uint64_t SNAPSHOT_INTERVAL = 100;
+
+    uint64_t operationsSinceSnapshot;
+
+    std::thread snapshotThread;
+
+    std::atomic<bool> running;
+
+    std::condition_variable snapshotCondition;
+    std::mutex snapshotMutex;
+
+    std::string snapshotFilename;
+
+    void snapshotLoop();
+
     void recover();
 
 
 public:
     explicit KeyValueStore(
-        const std::string& walFilename
+        const std::string& walFilename,
+        const std::string& snapshotFilename
     );
 
     void put(
@@ -42,6 +61,8 @@ public:
     void createSnapshot(
         const std::string& filename
     );
+
+    ~KeyValueStore();
 };
 
 #endif

@@ -19,12 +19,22 @@ add_executable(kv_server
 add_executable(snapshot_test
     tests/snapshot_test.cpp
     src/snapshot.cpp
-    src/kv_store.cpp
-    src/wal.cpp
 )
 
 add_executable(concurrent_test
     tests/concurrent_test.cpp
+    src/kv_store.cpp
+    src/wal.cpp
+    src/snapshot.cpp
+)
+
+add_executable(wal_compaction_test
+    tests/wal_compaction_test.cpp
+    src/wal.cpp
+)
+
+add_executable(recovery_test
+    tests/recovery_test.cpp
     src/kv_store.cpp
     src/wal.cpp
     src/snapshot.cpp
@@ -39,5 +49,13 @@ target_include_directories(snapshot_test PRIVATE
 )
 
 target_include_directories(concurrent_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(wal_compaction_test PRIVATE
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+target_include_directories(recovery_test PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )

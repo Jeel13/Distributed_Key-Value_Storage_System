@@ -5,7 +5,7 @@
 #include "kv_store.h"
 
 int main() {
-    KeyValueStore store("test.wal");
+    KeyValueStore store("concurrency_test.wal", "testSnapshot.dat");
 
     std::vector<std::thread> threads;
 

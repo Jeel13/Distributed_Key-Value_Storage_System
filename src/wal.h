@@ -6,6 +6,8 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <cstdio>
+#include <stdexcept>
 
 struct WALEntry {
     uint64_t sequence;
@@ -22,6 +24,8 @@ private:
 
     uint64_t nextSequence;
 
+    std::vector<WALEntry> readAllUnlocked();
+
 public:
     explicit WAL(const std::string& filename);
 
@@ -37,6 +41,8 @@ public:
     std::vector<WALEntry> readAll();
 
     uint64_t getLastSequence() const;
+
+    void compact(uint64_t sequence);
 };
 
 #endif

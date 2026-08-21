@@ -54,7 +54,7 @@ uint64_t WAL::appendDelete(
     uint64_t sequence = nextSequence++;
 
     file<< sequence
-        <<"DELETE|"
+        <<"|DELETE|"
         << key
         <<"\n";
 
@@ -63,7 +63,8 @@ uint64_t WAL::appendDelete(
     return sequence;
 }
 
-std::vector<WALEntry> WAL::readAll(){
+std::vector<WALEntry> WAL::readAllUnlocked(){
+
     std::vector<WALEntry> entries;
 
     std::ifstream input(filename);
@@ -110,6 +111,72 @@ std::vector<WALEntry> WAL::readAll(){
     return entries;
 }
 
+std::vector<WALEntry> WAL::readAll(){
+    std::lock_guard<std::mutex> lock(mutex);
+
+    return readAllUnlocked();
+}
+
 uint64_t WAL::getLastSequence() const {
     return nextSequence - 1;
+}
+
+void WAL::compact(uint64_t sequence){
+    std::lock_guard<std::mutex> lock(mutex);
+
+    auto entries=readAllUnlocked();
+
+    std::string tempFilename = filename + ".tmp";
+
+    std::ofstream tempFile(
+        tempFilename,
+        std::ios::trunc
+    );
+
+    if(!tempFile.is_open()){
+        throw std::runtime_error(
+            "Failed to open temporary WAL file"
+        );
+    }
+
+    for(const auto& entry: entries){
+        if(entry.sequence<=sequence){
+            continue;
+        }
+
+        tempFile<< entry.sequence
+                <<"|"
+                << entry.operation
+                <<"|"
+                << entry.key;
+            
+        if(entry.operation == "PUT"){
+            tempFile<<"|"
+                    << entry.value;
+        }
+                
+        tempFile<<"\n";
+    }
+
+    tempFile.flush();
+    tempFile.close();
+
+    file.close();
+
+    if(std::rename(tempFilename.c_str(), filename.c_str())!=0){
+        throw std::runtime_error(
+            "Failed to replace WAL"
+        );
+    }
+
+    file.open(
+        filename,
+        std::ios::out | std::ios::app
+    );
+
+    if(!file.is_open()){
+        throw std::runtime_error(
+            "Failed to reopen WAL after compaction"
+        );
+    }
 }

@@ -4,22 +4,47 @@
 #include <sstream>
 
 KeyValueStore::KeyValueStore(
-    const std::string& walFilename
-) : wal(walFilename), lastSequence(0) {
+    const std::string& walFilename,
+    const std::string& snapshotFilename
+) : wal(walFilename), 
+    snapshotFilename(snapshotFilename),
+    lastSequence(0),
+    operationsSinceSnapshot(0),
+    running(true) {
+
     recover();
+
+    snapshotThread = std::thread(
+        &KeyValueStore::snapshotLoop,
+        this
+    );
 }
 
 void KeyValueStore::put(
     const std::string& key,
     const std::string& value
 ) {
-    std::unique_lock<std::shared_mutex> lock(mutex);
+    bool shouldNotify=false;
 
-    uint64_t sequence = wal.appendPut(key, value);
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+    
+        uint64_t sequence = wal.appendPut(key, value);
+    
+        data[key]=value;
+    
+        lastSequence=sequence;
+    
+        operationsSinceSnapshot++;
 
-    data[key]=value;
+        if(operationsSinceSnapshot>=SNAPSHOT_INTERVAL){
+            shouldNotify=true;
+        }
+    }
 
-    lastSequence=sequence;
+    if(shouldNotify){
+        snapshotCondition.notify_one();
+    }
 }
 
 std::optional<std::string> KeyValueStore::get(
@@ -39,19 +64,35 @@ std::optional<std::string> KeyValueStore::get(
 bool KeyValueStore::remove(
     const std::string& key
 ) {
-    std::unique_lock<std::shared_mutex> lock(mutex);
+    bool shouldNotify=false;
+    bool removed;
 
-    uint64_t sequence = wal.appendDelete(key);
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+    
+        uint64_t sequence = wal.appendDelete(key);
+    
+        removed = data.erase(key) > 0;
+    
+        lastSequence = sequence;
+    
+        operationsSinceSnapshot++;
+    
+        if(operationsSinceSnapshot>=SNAPSHOT_INTERVAL){
+            shouldNotify=true;
+        }
+    }
 
-    bool removed = data.erase(key) > 0;
+    if(shouldNotify){
+        snapshotCondition.notify_one();
+    }
 
-    lastSequence = sequence;
 
     return removed;
 }
 
 void KeyValueStore::recover(){
-    SnapshotData snapshot = Snapshot::load("snapshot.dat");
+    SnapshotData snapshot = Snapshot::load(snapshotFilename);
 
     {
         std::unique_lock<std::shared_mutex> lock(mutex);
@@ -97,4 +138,51 @@ void KeyValueStore::createSnapshot(
         sequence,
         snapshotData
     );
+
+    wal.compact(sequence);
+
+    uint64_t currentSequence;
+
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+
+        currentSequence=lastSequence;
+    }
+
+    {
+        std::unique_lock<std::shared_mutex> lock(mutex);
+
+        operationsSinceSnapshot=currentSequence-sequence;
+    }
+}
+
+void KeyValueStore::snapshotLoop(){
+    while(running){
+        std::unique_lock<std::mutex> lock(snapshotMutex);
+
+        snapshotCondition.wait(
+            lock,
+            [this]() {
+                return !running || operationsSinceSnapshot>=SNAPSHOT_INTERVAL;
+            }
+        );
+
+        if(!running){
+            break;
+        }
+
+        lock.unlock();
+        
+        createSnapshot(snapshotFilename);
+    }
+}
+
+KeyValueStore::~KeyValueStore(){
+    running=false;
+
+    snapshotCondition.notify_one();
+
+    if(snapshotThread.joinable()){
+        snapshotThread.join();
+    }
 }
